@@ -1,0 +1,47 @@
+#!/bin/sh
+
+SERVICE_NAME=osg-ca-certs-updater-cron
+LOCKFILE=/var/lock/subsys/$SERVICE_NAME
+
+. /etc/rc.d/init.d/functions
+
+start () {
+    action "Enabling automatic CA certificate updates" touch $LOCKFILE
+    rc=$?
+    return $rc
+}
+
+stop () {
+    action "Disabling automatic CA certificate updates" rm -f $LOCKFILE
+    rc=$?
+    return $rc
+}
+
+status () {
+    if [ -f $LOCKFILE ]
+    then
+        echo "Automatic CA certificate updates are enabled"
+        return 0
+    else
+        echo "Automatic CA certificate updates are disabled"
+        return 3
+    fi
+}
+
+
+
+
+case "$1" in
+    start|stop|status)
+        $1
+        ;;
+    restart)
+        stop
+        start
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|status|restart}"
+        exit 2
+esac
+exit $?
+
