@@ -11,8 +11,8 @@ import time
 import traceback
 
 __version__ = '@VERSION@'
+MAINTAINER_EMAIL = "osg-software@opensciencegrid.org"
 
-BUG_REPORT_EMAIL = "osg-software@opensciencegrid.org"
 LASTRUN_TIMESTAMP_PATH = "/var/lib/osg-ca-certs-updater-lastrun"
 PACKAGE_LIST = [
     "osg-ca-certs",
@@ -23,14 +23,16 @@ PACKAGE_LIST = [
 
 log = logging.getLogger('updater')
 
+
 class Error(Exception):
     """Base class for expected exceptions. Caught in main(); may include a
     traceback but will only print it if debugging is enabled.
     
     """
-    def __init__(self, msg, tb=None):
+    def __init__(self, msg, trace=None):
+        Exception.__init__(self)
         self.msg = msg
-        if tb is None:
+        if trace is None:
             self.traceback = traceback.format_exc()
 
     def __repr__(self):
@@ -41,20 +43,27 @@ class Error(Exception):
 
 
 class UsageError(Error):
+    "Class for reporting incorrect arguments given to the program"
     def __init__(self, msg):
-       Error.__init__(self, "Usage error: " + msg + "\n")
+        Error.__init__(self, "Usage error: " + msg + "\n")
 
 
 class UpdateFailureError(Error):
+    "Class for reporting a failure running yum update"
     def __init__(self, msg):
         if msg:
             Error.__init__(self, "Update failure: " + msg + "\n")
         else:
             Error.__init__(self, "Update failure\n")
 
+
 def setup_logging(loglevel, logfile_path, log_to_syslog=False):
+    """Set up the global 'log' object based on where the user wants to log to,
+    e.g. syslog, or a file, or console.
+
+    """
     global log
-    log.setLevel(options.loglevel)
+    log.setLevel(loglevel)
 
     simple_formatter = logging.Formatter("%(message)s")
     detailed_formatter = logging.Formatter("osg-ca-certs-updater:%(asctime)s:%(levelname)s:%(message)s")
@@ -68,12 +77,14 @@ def setup_logging(loglevel, logfile_path, log_to_syslog=False):
         else:
             log_handler = logging.FileHandler(logfile_path)
 
-    log_handler.setLevel(options.loglevel)
+    log_handler.setLevel(loglevel)
     log_handler.setFormatter(log_formatter)
     log.addHandler(log_handler)
     log.propagate = False
 
+
 def do_random_wait(random_wait_seconds):
+    "Sleep for at most 'random_wait_seconds'. Ignore bad arguments."
     try:
         random_wait_seconds = int(random_wait_seconds)
         if random_wait_seconds < 0: raise ValueError()
@@ -81,11 +92,16 @@ def do_random_wait(random_wait_seconds):
         # int() raises TypeError if the arg is None, and ValueError if it cannot be converted to an int.
         log.debug("Invalid value for random-wait. Not waiting.")
         return
-    time_to_wait = random.Random.randint(0, random_wait_seconds)
+    time_to_wait = random.randint(0, random_wait_seconds)
     log.debug("Sleeping for %d seconds" % time_to_wait)
     time.sleep(time_to_wait)
 
+
 def do_yum_update():
+    """Use yum to update the packages in 'PACKAGE_LIST'. Return a bool
+    for success/failure. Output from yum is logged.
+
+    """
     yum_proc = subprocess.Popen(["yum", "update", "-y", "-q"] + PACKAGE_LIST, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     (yum_outerr, _) = yum_proc.communicate()
     yum_ret = yum_proc.returncode
@@ -95,31 +111,51 @@ def do_yum_update():
         return False
     return True
 
+
 def save_timestamp(timestamp_path, timestamp):
-    timestamp_handle = open(timestamp_path)
-    # TODO Handle any errors while trying to write
+    """Write the timestamp (seconds since epoch) to a file.
+    Log errors.
+
+    """
     try:
-        print >>timestamp_handle, "%d\n" % timestamp
-        return True
-    finally:
-        timestamp_handle.close()
+        timestamp_handle = open(timestamp_path)
+        try:
+            print >> timestamp_handle, "%d\n" % timestamp
+            return True
+        finally:
+            timestamp_handle.close()
+    except IOError, err:
+        log.error("Unable to save timestamp to %s: %s", timestamp_path, str(err))
+        return False
 
 
 
 def get_lastrun_timestamp(timestamp_path):
-    # TODO Error handling
-    timestamp_handle = open(timestamp_path)
+    """Read a timestamp (seconds since epoch) from a file. Return None if
+    the timestamp cannot be read. Ignore the file not existing, log other
+    errors.
+
+    """
+    if not os.path.exists(timestamp_path):
+        return None
     try:
-        timestamp = timestamp_handle.readline()
-        return timestamp
-    finally:
-        timestamp_handle.close()
+        timestamp_handle = open(timestamp_path)
+        try:
+            timestamp = timestamp_handle.readline()
+            return timestamp
+        finally:
+            timestamp_handle.close()
+    except IOError, err:
+        log.error("Unable to load timestamp from %s: %s", timestamp_path, str(err))
+        return None
 
 
 def timestamp_to_str(timestamp):
+    "The timestamp (seconds since epoch) as a human-readable string."
     return time.strftime("%c", time.localtime(timestamp))
 
 def main(argv=None):
+    "Main function"
     if argv is None:
         argv = sys.argv
     try:
@@ -151,7 +187,7 @@ def main(argv=None):
         parser.add_option("-s", "--syslog", action="store_true", dest="log_to_syslog", default=False,
                           help="Write messages to syslog instead of console.")
 
-        options, pos_args = parser.parse_args(argv[1:])
+        options, _ = parser.parse_args(argv[1:])
 
         setup_logging(options.loglevel, options.logfile, options.log_to_syslog)
 
@@ -181,27 +217,28 @@ def main(argv=None):
             
                          
 
-    except UsageError, e:
+    except UsageError, err:
         parser.print_help()
-        print >>sys.stderr, str(e)
+        print >> sys.stderr, str(err)
         return 2
-    except SystemExit, e:
-        return e.code
+    except SystemExit, err:
+        return err.code
     except KeyboardInterrupt:
-        print >>sys.stderr, "Interrupted"
+        print >> sys.stderr, "Interrupted"
         return 3
-    except UpdateFailureError, e:
-        logging.error(str(e))
+    except UpdateFailureError, err:
+        logging.error(str(err))
         return 1
-    except Error, e:
-        logging.critical(str(e))
-        logging.debug(e.traceback)
+    except Error, err:
+        logging.critical(str(err))
+        logging.debug(err.traceback)
         return 1
-    except Exception, e:
-        logging.critical("Unhandled exception: %s", str(e))
+    except Exception, err:
+        logging.critical("Unhandled exception: %s", str(err))
         logging.critical(traceback.format_exc())
-        logging.critical("Please report this bug to %s." % BUG_REPORT_EMAIL)
-        # ^ TODO phrase this better.
+        logging.critical("Please send a bug report regarding this error with as "
+                         "much information as you can provide about the "
+                         "circumstances to %s", MAINTAINER_EMAIL)
         return 1
 
     return 0
