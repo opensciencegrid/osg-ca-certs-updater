@@ -1,5 +1,6 @@
 #!/usr/bin/python
 """OSG Auto-Updater for CA Certificates"""
+# pylint: disable=C0103
 from optparse import OptionParser
 import logging
 import logging.handlers
@@ -21,7 +22,7 @@ PACKAGE_LIST = [
     "igtf-ca-certs-compat"
     ]
 
-log = logging.getLogger('updater')
+logger = logging.getLogger('updater')
 
 
 class Error(Exception):
@@ -62,8 +63,8 @@ def setup_logging(loglevel, logfile_path, log_to_syslog=False):
     e.g. syslog, or a file, or console.
 
     """
-    global log
-    log.setLevel(loglevel)
+    global logger # pylint: disable=W0602
+    logger.setLevel(loglevel)
 
     simple_formatter = logging.Formatter("%(message)s")
     detailed_formatter = logging.Formatter("osg-ca-certs-updater:%(asctime)s:%(levelname)s:%(message)s")
@@ -79,21 +80,22 @@ def setup_logging(loglevel, logfile_path, log_to_syslog=False):
 
     log_handler.setLevel(loglevel)
     log_handler.setFormatter(log_formatter)
-    log.addHandler(log_handler)
-    log.propagate = False
+    logger.addHandler(log_handler)
+    logger.propagate = False
 
 
 def do_random_wait(random_wait_seconds):
     "Sleep for at most 'random_wait_seconds'. Ignore bad arguments."
     try:
         random_wait_seconds = int(random_wait_seconds)
-        if random_wait_seconds < 0: raise ValueError()
+        if random_wait_seconds < 0:
+            raise ValueError()
     except (TypeError, ValueError):
         # int() raises TypeError if the arg is None, and ValueError if it cannot be converted to an int.
-        log.debug("Invalid value for random-wait. Not waiting.")
+        logger.debug("Invalid value for random-wait. Not waiting.")
         return
     time_to_wait = random.randint(0, random_wait_seconds)
-    log.debug("Sleeping for %d seconds" % time_to_wait)
+    logger.debug("Sleeping for %d seconds" % time_to_wait)
     time.sleep(time_to_wait)
 
 
@@ -106,7 +108,7 @@ def do_yum_update():
     (yum_outerr, _) = yum_proc.communicate()
     yum_ret = yum_proc.returncode
 
-    log.info("Yum output: %s", yum_outerr)
+    logger.info("Yum output: %s", yum_outerr)
     if yum_ret != 0:
         return False
     return True
@@ -125,7 +127,7 @@ def save_timestamp(timestamp_path, timestamp):
         finally:
             timestamp_handle.close()
     except IOError, err:
-        log.error("Unable to save timestamp to %s: %s", timestamp_path, str(err))
+        logger.error("Unable to save timestamp to %s: %s", timestamp_path, str(err))
         return False
 
 
@@ -146,7 +148,7 @@ def get_lastrun_timestamp(timestamp_path):
         finally:
             timestamp_handle.close()
     except IOError, err:
-        log.error("Unable to load timestamp from %s: %s", timestamp_path, str(err))
+        logger.error("Unable to load timestamp from %s: %s", timestamp_path, str(err))
         return None
 
 
@@ -154,7 +156,7 @@ def timestamp_to_str(timestamp):
     "The timestamp (seconds since epoch) as a human-readable string."
     return time.strftime("%c", time.localtime(timestamp))
 
-def main(argv=None):
+def main(argv=None): # pylint:disable=R0911,R0912,R0915
     "Main function"
     if argv is None:
         argv = sys.argv
@@ -193,26 +195,26 @@ def main(argv=None):
 
         lastrun_timestamp = get_lastrun_timestamp(LASTRUN_TIMESTAMP_PATH)
         if not lastrun_timestamp:
-            log.debug("No record of script having been run before")
+            logger.debug("No record of script having been run before")
         else:
-            log.debug("Last run %s" % timestamp_to_str(lastrun_timestamp))
+            logger.debug("Last run %s" % timestamp_to_str(lastrun_timestamp))
 
         if not lastrun_timestamp or lastrun_timestamp > time.time() - options.minimum_age_hours * 3600:
             do_random_wait(options.random_wait_minutes * 60)
             ret = do_yum_update()
             if ret:
                 new_timestamp = time.time()
-                log.info("Update succeeded at %s" % timestamp_to_str(new_timestamp))
+                logger.info("Update succeeded at %s" % timestamp_to_str(new_timestamp))
                 save_timestamp(LASTRUN_TIMESTAMP_PATH, new_timestamp)
             else:
-                log.info("Update failed at %s" % timestamp_to_str(time.time()))
+                logger.info("Update failed at %s" % timestamp_to_str(time.time()))
                 if not lastrun_timestamp or lastrun_timestamp > time.time() - options.maximum_age_hours * 3600:
                     raise UpdateFailureError()
                 else:
-                    log.info("Error considered transient until %s" %
+                    logger.info("Error considered transient until %s" %
                              (timestamp_to_str(lastrun_timestamp + options.maximum_age_hours * 3600)))
         else:
-            log.info("Already updated in the past %d hours. Not updating again until %s." %
+            logger.info("Already updated in the past %d hours. Not updating again until %s." %
                      (options.minimum_age_hours, timestamp_to_str(lastrun_timestamp + options.minimum_age_hours)))
             
                          
