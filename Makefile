@@ -20,7 +20,7 @@ _default:
 clean:
 	rm -f *.py[co] *~
 
-install:
+install: manual
 	mkdir -p $(DESTDIR)/$(SBINDIR)
 	install -p -m 755 $(NAME).py $(DESTDIR)/$(SBINDIR)/$(NAME)
 
@@ -35,8 +35,7 @@ install:
 	#install -p -m 644 README $(DESTDIR)/$(DOCDIR)
 	#
 	mkdir -p $(DESTDIR)/$(MANDIR)
-	sed -e 's/@NAME@/$(NAME)/g' -e 's/@DATE@/$(MAN_DATE)/g' -e 's/@VERSION@/$(VERSION)/g' $(MANPAGE).in > $(DESTDIR)/$(MANDIR)/$(MANPAGE)
-	chmod 0644 $(DESTDIR)/$(MANDIR)/$(MANPAGE)
+	install -p -m 644 $(MANPAGE) $(DESTDIR)/$(MANDIR)
 
 
 dist:
@@ -50,6 +49,12 @@ afsdist upstream: dist
 	mkdir -p $(AFS_UPSTREAM_DIR)/$(VERSION)
 	mv -f $(NAME_VERSION).tar.gz $(AFS_UPSTREAM_DIR)/$(VERSION)/
 	rm -rf $(NAME_VERSION)
+
+manual: $(MANPAGE)
+
+$(MANPAGE): $(MANPAGE).in
+	sed -e 's/@NAME@/$(NAME)/g' -e 's/@DATE@/$(MAN_DATE)/g' -e 's/@VERSION@/$(VERSION)/g' $(MANPAGE).in > $(MANPAGE)
+	
 
 release: dist
 	@if [ "$(DESTDIR)" = "" ]; then                                        \

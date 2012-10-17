@@ -64,7 +64,7 @@ hours since the last successful update
 .PP
 @NAME@ returns 2 on invalid usage
 .PP
-@NAME@ returns 3 if interrupted by SIGINT (i.e. Control-C)
+@NAME@ returns 3 if interrupted by SIGINT (i.e. Control\-C)
 .PP
 @NAME@ returns 4 on some other fatal error such as repositories containing CA certificate packages not being present or enabled
 .PP
