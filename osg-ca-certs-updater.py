@@ -1,17 +1,19 @@
 #!/usr/bin/python
 """OSG Auto-Updater for CA Certificates"""
-# pylint: disable=C0103
+# pylint: disable=C0103,W0603
 from optparse import OptionParser
 import logging
 import logging.handlers
 import os
 import random
+import re
 import subprocess
 import sys
 import time
 import traceback
 
 __version__ = '@VERSION@'
+PROGRAM_NAME = "osg-ca-certs-updater"
 MAINTAINER_EMAIL = "osg-software@opensciencegrid.org"
 
 LASTRUN_TIMESTAMP_PATH = "/var/lib/osg-ca-certs-updater-lastrun"
@@ -23,6 +25,7 @@ PACKAGE_LIST = [
     ]
 
 logger = logging.getLogger('updater')
+logger_set_up = False
 
 
 class Error(Exception):
@@ -49,8 +52,8 @@ class UsageError(Error):
         Error.__init__(self, "Usage error: " + msg + "\n")
 
 
-class UpdateFailureError(Error):
-    "Class for reporting a failure running yum update"
+class UpdateError(Error):
+    "Class for reporting some failure performing the update"
     def __init__(self, msg):
         if msg:
             Error.__init__(self, "Update failure: " + msg + "\n")
@@ -58,30 +61,32 @@ class UpdateFailureError(Error):
             Error.__init__(self, "Update failure\n")
 
 
-def setup_logging(loglevel, logfile_path, log_to_syslog=False):
+def setup_logger(loglevel, logfile_path, log_to_syslog, syslog_address, syslog_facility):
     """Set up the global 'log' object based on where the user wants to log to,
     e.g. syslog, or a file, or console.
 
     """
     global logger # pylint: disable=W0602
+    global logger_set_up
     logger.setLevel(loglevel)
 
-    simple_formatter = logging.Formatter("%(message)s")
-    detailed_formatter = logging.Formatter("osg-ca-certs-updater:%(asctime)s:%(levelname)s:%(message)s")
     if not logfile_path and not log_to_syslog:
         log_handler = logging.StreamHandler()
-        log_formatter = simple_formatter
+        log_formatter = logging.Formatter("%(message)s")
     else:
-        log_formatter = detailed_formatter
         if log_to_syslog:
-            log_handler = logging.handlers.SysLogHandler()
+            log_formatter = logging.Formatter(PROGRAM_NAME + ": %(message)s")
+            log_handler = logging.handlers.SysLogHandler(address=syslog_address, facility=syslog_facility)
         else:
+            log_formatter = logging.Formatter(PROGRAM_NAME + ":%(asctime)s:%(levelname)s:%(message)s")
             log_handler = logging.FileHandler(logfile_path)
 
     log_handler.setLevel(loglevel)
     log_handler.setFormatter(log_formatter)
     logger.addHandler(log_handler)
     logger.propagate = False
+
+    logger_set_up = True
 
 
 def do_random_wait(random_wait_seconds):
@@ -94,11 +99,14 @@ def do_random_wait(random_wait_seconds):
         # int() raises TypeError if the arg is None, and ValueError if it cannot be converted to an int.
         logger.debug("Invalid value for random-wait. Not waiting.")
         return
-    time_to_wait = random.randint(0, random_wait_seconds)
-    logger.debug("Sleeping for %d seconds" % time_to_wait)
+    if random_wait_seconds < 1:
+        return
+    time_to_wait = random.randint(1, random_wait_seconds)
+    logger.debug("Waiting for %d seconds" % time_to_wait)
     time.sleep(time_to_wait)
 
 
+# TODO: Should raise UpdateError instead of returning a bool
 def do_yum_update():
     """Use yum to update the packages in 'PACKAGE_LIST'. Return a bool
     for success/failure. Output from yum is logged.
@@ -108,19 +116,49 @@ def do_yum_update():
     (yum_outerr, _) = yum_proc.communicate()
     yum_ret = yum_proc.returncode
 
-    logger.info("Yum output: %s", yum_outerr)
+    if re.search(r'\S', yum_outerr):
+        logger.info("Yum output: %s", yum_outerr)
     if yum_ret != 0:
         return False
     return True
 
 
+def verify_requirement_available(requirement):
+    """Use repoquery to ensure that an rpm requirement matching 'requirement'
+    is available in an external repository. This allows us to detect the case
+    when the user's osg repositories are disabled, thus never having updates
+    available for their certs. yum does not detect this case.
+
+    Using 'requirement' instead of 'package' to allow us to rename cert
+    packages without breaking this test in the future.
+
+    """
+    repoquery_proc = subprocess.Popen(
+        ["repoquery", "--whatprovides", requirement, "--queryformat=%{repoid}"],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    (repoquery_out, repoquery_err) = repoquery_proc.communicate()
+    repoquery_ret = repoquery_proc.returncode
+
+    if repoquery_ret != 0:
+        raise Error("Unable to query repository. Repoquery error:\n%s" % (repoquery_err))
+    # Aside from the case of an error, repoquery_out now contains a newline-
+    # separated list of repos providing each matching package.
+    # 'installed' is a "repo" that contains all installed packages.
+    # Only want external repos, so filter that out. (Also filter blank lines).
+    external_repos_providing = [x for x in repoquery_out.split("\n") if re.search(r'\S', x) and -1 == x.find('installed')]
+
+    # For now, considering this a fatal error.
+    if not external_repos_providing:
+        raise Error("No external repos provide %s. Ensure required yum repos are enabled." % (requirement))    
+
+
 def save_timestamp(timestamp_path, timestamp):
     """Write the timestamp (seconds since epoch) to a file.
-    Log errors.
+    Failing to write is not fatal but should be logged.
 
     """
     try:
-        timestamp_handle = open(timestamp_path)
+        timestamp_handle = open(timestamp_path, 'w')
         try:
             print >> timestamp_handle, "%d\n" % timestamp
             return True
@@ -134,9 +172,10 @@ def save_timestamp(timestamp_path, timestamp):
 
 def get_lastrun_timestamp(timestamp_path):
     """Read a timestamp (seconds since epoch) from a file. Return None if
-    the timestamp cannot be read. Ignore the file not existing, log other
-    errors.
-
+    the timestamp cannot be read. Assume that a nonexistant file means this
+    program has not been run before. Failure to read or parse an existing
+    file is a non-fatal error that gets logged.
+    
     """
     if not os.path.exists(timestamp_path):
         return None
@@ -144,54 +183,103 @@ def get_lastrun_timestamp(timestamp_path):
         timestamp_handle = open(timestamp_path)
         try:
             timestamp = timestamp_handle.readline()
-            return timestamp
+            return float(timestamp)
         finally:
             timestamp_handle.close()
     except IOError, err:
         logger.error("Unable to load timestamp from %s: %s", timestamp_path, str(err))
         return None
+    except ValueError, err:
+        logger.error("Unable to parse timestamp from %s: %s", timestamp_path, str(err))
+        return None
 
 
 def timestamp_to_str(timestamp):
     "The timestamp (seconds since epoch) as a human-readable string."
-    return time.strftime("%c", time.localtime(timestamp))
+    return time.strftime("%c", time.localtime(float(timestamp)))
 
-def main(argv=None): # pylint:disable=R0911,R0912,R0915
+
+def get_options(args):    
+    "Parse, validate, and transform command-line options."
+    parser = OptionParser("""
+%prog [options]
+""")
+    parser.add_option("-a", "--minimum-age", metavar="HOURS", dest="minimum_age_hours",
+                      help="The time which must have elapsed since the last "
+                      "successful run before attempting an update. If not "
+                      "supplied or 0, always update.",
+                      default=0)
+    parser.add_option("-x", "--maximum-age", metavar="HOURS", dest="maximum_age_hours",
+                      help="The time after the last successful run after "
+                      "which an unsuccessful run is considered an error. "
+                      "If not supplied or 0, all unsuccessful runs are "
+                      "considered errors.",
+                      default=0)
+    parser.add_option("-r", "--random-wait", metavar="MINUTES", dest="random_wait_minutes",
+                      help="Delay for at most this many minutes before "
+                      "running an update, to reduce load spikes on update "
+                      "servers. If not supplied or 0, update immediately.",
+                      default=0)
+    parser.add_option("-v", "--verbose", action="store_const",
+                      const=logging.DEBUG, dest="loglevel", default=logging.INFO,
+                      help="Display more information.")
+    parser.add_option("-q", "--quiet", action="store_const",
+                      const=logging.ERROR, dest="loglevel", default=logging.INFO,
+                      help="Only display errors.")
+    parser.add_option("-l", "--logfile", metavar="PATH", default=None,
+                      help="Write messages to the given file instead of console.")
+    parser.add_option("-s", "--log-to-syslog", action="store_true", default=False,
+                      help="Write messages to syslog instead of console.")
+    parser.add_option("--syslog-address", default="/dev/log",
+                      help="Address to use for syslog. Can be a file "
+                      "(e.g. /dev/log) or an address:port combination. "
+                      "Default is '%default'.")
+    parser.add_option("--syslog-facility", default="user",
+                      help="The syslog facility to log to. "
+                      "Default is '%default'.")
+
+    options, _ = parser.parse_args(args)
+
+    try:
+        options.minimum_age_hours = int(options.minimum_age_hours)
+    except ValueError:
+        raise UsageError("The value for minimum-age must be an integer number of hours.")
+    try:
+        options.maximum_age_hours = int(options.maximum_age_hours)
+    except ValueError:
+        raise UsageError("The value for maximum-age must be an integer number of hours.")
+    try:
+        options.random_wait_minutes = int(options.random_wait_minutes)
+    except ValueError:
+        raise UsageError("The value for random-wait must be an integer number of minutes.")
+
+    if options.log_to_syslog:
+        # SysLogHandler expects either a (host, port) tuple or a local file
+        # for the syslog address.
+        if options.syslog_address.find(':') != -1:
+            (syslog_host, syslog_port) = options.syslog_address.split(':', 1)
+            if not syslog_host:
+                raise UsageError("Invalid host specified for syslog-address.")
+            try:
+                syslog_port = int(syslog_port)
+            except ValueError:
+                raise UsageError("Invalid port specified for syslog-address. "
+                                 "Port must be an integer.")
+            options.syslog_address = (syslog_host, syslog_port)
+        else:
+            if not os.path.exists(options.syslog_address):
+                raise UsageError("Invalid path specified for syslog-address.")
+
+    return options
+
+def main(argv=None):
     "Main function"
     if argv is None:
         argv = sys.argv
     try:
-        parser = OptionParser("""
-   %prog [options]
-""")
-        parser.add_option("-a", "--minimum-age", metavar="HOURS", dest="minimum_age_hours",
-                          help="The time which must have elapsed since the last "
-                          "successful run before attempting an update. If not "
-                          "supplied or 0, always update.",
-                          default=0)
-        parser.add_option("-x", "--maximum-age", metavar="HOURS", dest="maximum_age_hours",
-                          help="The time after the last successful run after "
-                          "which an unsuccessful run is considered an error. "
-                          "If not supplied or 0, all unsuccessful runs are "
-                          "considered errors.",
-                          default=0)
-        parser.add_option("-r", "--random-wait", metavar="MINUTES", dest="random_wait_minutes",
-                          help="Delay for at most this many minutes before "
-                          "running an update, to reduce load spikes on update "
-                          "servers. If not supplied or 0, update immediately.",
-                          default=0)
-        parser.add_option("-v", "--verbose", action="store_const", const=logging.DEBUG, dest="loglevel", default=logging.INFO,
-                          help="Display more information.")
-        parser.add_option("-q", "--quiet", action="store_const", const=logging.ERROR, dest="loglevel", default=logging.INFO,
-                          help="Only display errors.")
-        parser.add_option("-l", "--logfile", metavar="PATH", default=None,
-                          help="Write messages to this file instead of console.")
-        parser.add_option("-s", "--syslog", action="store_true", dest="log_to_syslog", default=False,
-                          help="Write messages to syslog instead of console.")
+        options = get_options(argv[1:])
 
-        options, _ = parser.parse_args(argv[1:])
-
-        setup_logging(options.loglevel, options.logfile, options.log_to_syslog)
+        setup_logger(options.loglevel, options.logfile, options.log_to_syslog, options.syslog_address, options.syslog_facility)
 
         lastrun_timestamp = get_lastrun_timestamp(LASTRUN_TIMESTAMP_PATH)
         if not lastrun_timestamp:
@@ -199,51 +287,68 @@ def main(argv=None): # pylint:disable=R0911,R0912,R0915
         else:
             logger.debug("Last run %s" % timestamp_to_str(lastrun_timestamp))
 
-        if not lastrun_timestamp or lastrun_timestamp > time.time() - options.minimum_age_hours * 3600:
+        if not lastrun_timestamp:
+            next_update_time = time.time()
+            expire_time = time.time()
+        else:
+            next_update_time = lastrun_timestamp + options.minimum_age_hours * 3600
+            expire_time = lastrun_timestamp + options.maximum_age_hours * 3600
+
+        logger.debug("Next update time: %s" % timestamp_to_str(next_update_time))
+        logger.debug("Expire time: %s" % timestamp_to_str(expire_time))
+
+        if time.time() >= next_update_time:
             do_random_wait(options.random_wait_minutes * 60)
+            for pkg in PACKAGE_LIST:
+                verify_requirement_available(pkg)
             ret = do_yum_update()
+            new_timestamp = time.time()
             if ret:
-                new_timestamp = time.time()
                 logger.info("Update succeeded at %s" % timestamp_to_str(new_timestamp))
                 save_timestamp(LASTRUN_TIMESTAMP_PATH, new_timestamp)
             else:
-                logger.info("Update failed at %s" % timestamp_to_str(time.time()))
-                if not lastrun_timestamp or lastrun_timestamp > time.time() - options.maximum_age_hours * 3600:
-                    raise UpdateFailureError()
+                logger.warning("Update failed at %s" % timestamp_to_str(new_timestamp))
+                if new_timestamp >= expire_time:
+                    raise UpdateError("Update failure escalated to error")
                 else:
                     logger.info("Error considered transient until %s" %
-                             (timestamp_to_str(lastrun_timestamp + options.maximum_age_hours * 3600)))
+                                (timestamp_to_str(expire_time)))
         else:
             logger.info("Already updated in the past %d hours. Not updating again until %s." %
-                     (options.minimum_age_hours, timestamp_to_str(lastrun_timestamp + options.minimum_age_hours)))
-            
-                         
+                        (options.minimum_age_hours, timestamp_to_str(next_update_time)))
 
+        exit_code = 0
     except UsageError, err:
-        parser.print_help()
         print >> sys.stderr, str(err)
-        return 2
+        print >> sys.stderr, "To see usage, run %s --help" % argv[0]
+        exit_code = 2
     except SystemExit, err:
-        return err.code
+        exit_code = err.code
     except KeyboardInterrupt:
         print >> sys.stderr, "Interrupted"
-        return 3
-    except UpdateFailureError, err:
-        logging.error(str(err))
-        return 1
+        exit_code = 3
+    except UpdateError, err:
+        logger.error(str(err))
+        exit_code = 1
     except Error, err:
-        logging.critical(str(err))
-        logging.debug(err.traceback)
-        return 1
+        logger.critical(str(err))
+        logger.debug(err.traceback)
+        exit_code = 4
     except Exception, err:
-        logging.critical("Unhandled exception: %s", str(err))
-        logging.critical(traceback.format_exc())
-        logging.critical("Please send a bug report regarding this error with as "
-                         "much information as you can provide about the "
-                         "circumstances to %s", MAINTAINER_EMAIL)
-        return 1
+        # We have to worry about the logger possibly not being initialized at
+        # this point. Use the root logger if that's the case.
+        if not logger_set_up:
+            log = logging
+        else:
+            log = logger
+        log.critical("Unhandled exception: %s", str(err))
+        log.critical(traceback.format_exc())
+        log.critical("Please send a bug report regarding this error with as "
+                     "much information as you can provide about the "
+                     "circumstances to %s", MAINTAINER_EMAIL)
+        exit_code = 99
 
-    return 0
+    return exit_code
 
 if __name__ == "__main__":
     sys.exit(main())

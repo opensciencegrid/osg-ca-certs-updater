@@ -1,0 +1,79 @@
+.TH @NAME@ 8 "@DATE@" "version @VERSION@" "SYSTEM ADMINISTRATION TOOLS"
+.SH NAME
+@NAME@ \- Automatically update CA certificate packages provided by OSG
+.SH SYNOPSIS
+.B @NAME@
+[options]
+.PP
+See ``@NAME@ \-\-help'' for program usage.
+.SH DESCRIPTION
+Automatically update CA certificate packages provided by OSG.
+This program is designed to be run periodically from cron to ensure that
+the most recent CA certificate packages are installed on a site running
+the OSG 3.x distribution, without having to update any other package on
+the system.
+.SH EXAMPLES
+.TP
+Update CA certificates immediately
+.B @NAME@
+.PP
+.TP
+Update CA certificates after a random delay of 30 minutes (to avoid placing load on servers)
+.B @NAME@
+\-r 30
+.PP
+.TP
+Update CA certificates only if they have not been updated in the past 24 hours
+.B @NAME@
+\-a 24
+.PP
+.TP
+Ignore transient errors unless no update attempt succeeded in the past 72 hours
+.B @NAME@
+\-x 72
+.PP
+.TP
+Log to the file /var/log/certs-updater.log
+.B @NAME@
+\-l /var/log/certs-updater.log
+.PP
+.TP
+Log to local syslog
+.B @NAME@
+\-s
+.PP
+.SH EXIT STATUS
+@NAME@ returns 0 in the following cases:
+.PP
+.IP \(bu 4
+An update is successful
+.IP \(bu 4
+No update is required (all installed CA certificate packages are up to date)
+.IP \(bu 4
+A successful update happened in the last
+.B minimum-age
+hours
+.IP \(bu 4
+A transient error occurred less than 
+.B maximum-age
+hours since the last successful update
+.PP
+@NAME@ returns 1 on an update error more than
+.B maximum-age
+hours since the last successful update
+.PP
+@NAME@ returns 2 on invalid usage
+.PP
+@NAME@ returns 3 if interrupted by SIGINT (i.e. Control-C)
+.PP
+@NAME@ returns 4 on some other fatal error such as repositories containing CA certificate packages not being present or enabled
+.PP
+@NAME@ returns 99 on an unexpected error
+.SH AUTHOR
+Matyas Selmeci (matyas (at) cs.wisc.edu)
+.SH MAINTAINER
+Open Science Grid Software Team (osg-software (at) opensciencegrid.org)
+.SH SEE ALSO
+The OSG Software Stack version 3 documentation on the Open Science Grid wiki is located at
+.B https://twiki.grid.iu.edu/bin/view/Documentation/Release3/
+
