@@ -40,8 +40,8 @@ install: manual
 
 dist:
 	mkdir -p $(NAME_VERSION)
-	# TODO: Add README, manpage
-	cp -rp $(NAME).py $(NAME)-cron.init $(NAME).cron Makefile pylintrc $(NAME_VERSION)/
+	# TODO: Add README
+	cp -rp $(NAME).py $(NAME)-cron.init $(NAME).cron Makefile pylintrc $(MANPAGE).in $(NAME_VERSION)/
 	sed -i -e '/__version__/s/@VERSION@/$(VERSION)/' $(NAME_VERSION)/$(NAME).py
 	tar czf $(NAME_VERSION).tar.gz $(NAME_VERSION)/ --exclude='*/.svn*' --exclude='*/*.py[co]' --exclude='*/*~'
 
