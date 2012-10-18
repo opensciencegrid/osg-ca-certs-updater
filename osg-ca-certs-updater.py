@@ -54,7 +54,7 @@ class UsageError(Error):
 
 class UpdateError(Error):
     "Class for reporting some failure performing the update"
-    def __init__(self, msg):
+    def __init__(self, msg=None):
         if msg:
             Error.__init__(self, "Update failure: " + msg + "\n")
         else:
@@ -316,12 +316,11 @@ def main(argv):
             logger.info("Update succeeded")
             save_timestamp(LASTRUN_TIMESTAMP_PATH, time.time())
         except UpdateError, err:
-            logger.warning(str(err))
             if time.time() >= expire_time:
                 raise UpdateError("Escalated to error")
             else:
-                logger.info("Update error considered transient until %s" %
-                            (format_timestamp(expire_time)))
+                logger.warning("Update error. Considered transient until %s" %
+                               (format_timestamp(expire_time)))
     else:
         logger.info("Already updated in the past %d hours. Not updating again until %s." %
                     (options.minimum_age_hours, format_timestamp(next_update_time)))
