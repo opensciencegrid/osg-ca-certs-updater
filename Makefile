@@ -30,18 +30,16 @@ install: manual
 	mkdir -p $(DESTDIR)/$(CRONDDIR)
 	install -p -m 644 $(NAME).cron $(DESTDIR)/$(CRONDDIR)/$(NAME)
 
-	# TODO
-	#mkdir -p $(DESTDIR)/$(DOCDIR)
-	#install -p -m 644 README $(DESTDIR)/$(DOCDIR)
-	#
+	mkdir -p $(DESTDIR)/$(DOCDIR)
+	install -p -m 644 README $(DESTDIR)/$(DOCDIR)
+	
 	mkdir -p $(DESTDIR)/$(MANDIR)
 	install -p -m 644 $(MANPAGE) $(DESTDIR)/$(MANDIR)
 
 
 dist:
 	mkdir -p $(NAME_VERSION)
-	# TODO: Add README
-	cp -rp $(NAME).py $(NAME)-cron.init $(NAME).cron Makefile pylintrc $(MANPAGE).in $(NAME_VERSION)/
+	cp -rp $(NAME).py $(NAME)-cron.init $(NAME).cron Makefile pylintrc $(MANPAGE).in README $(NAME_VERSION)/
 	sed -i -e '/__version__/s/@VERSION@/$(VERSION)/' $(NAME_VERSION)/$(NAME).py
 	tar czf $(NAME_VERSION).tar.gz $(NAME_VERSION)/ --exclude='*/.svn*' --exclude='*/*.py[co]' --exclude='*/*~'
 

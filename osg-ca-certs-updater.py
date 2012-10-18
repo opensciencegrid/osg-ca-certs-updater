@@ -62,7 +62,7 @@ class UpdateError(Error):
 
 
 def setup_logger(loglevel, logfile_path, log_to_syslog, syslog_address, syslog_facility):
-    """Set up the global 'log' object based on where the user wants to log to,
+    """Set up the global 'logger' object based on where the user wants to log to,
     e.g. syslog, or a file, or console.
 
     """
@@ -96,7 +96,8 @@ def do_random_wait(random_wait_seconds):
         if random_wait_seconds < 0:
             raise ValueError()
     except (TypeError, ValueError):
-        # int() raises TypeError if the arg is None, and ValueError if it cannot be converted to an int.
+        # int() raises TypeError if the arg is None, and ValueError if it
+        # cannot be converted to an int.
         logger.debug("Invalid value for random-wait. Not waiting.")
         return
     if random_wait_seconds < 1:
@@ -106,21 +107,20 @@ def do_random_wait(random_wait_seconds):
     time.sleep(time_to_wait)
 
 
-# TODO: Should raise UpdateError instead of returning a bool
-def do_yum_update():
-    """Use yum to update the packages in 'PACKAGE_LIST'. Return a bool
+def do_yum_update(package_list):
+    """Use yum to update the packages in 'package_list'. Return a bool
     for success/failure. Output from yum is logged.
 
     """
-    yum_proc = subprocess.Popen(["yum", "update", "-y", "-q"] + PACKAGE_LIST, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    yum_proc = subprocess.Popen(["yum", "update", "-y", "-q"] + package_list,
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     (yum_outerr, _) = yum_proc.communicate()
     yum_ret = yum_proc.returncode
 
     if re.search(r'\S', yum_outerr):
         logger.info("Yum output: %s", yum_outerr)
     if yum_ret != 0:
-        return False
-    return True
+        raise UpdateError()
 
 
 def verify_requirement_available(requirement):
@@ -145,7 +145,10 @@ def verify_requirement_available(requirement):
     # separated list of repos providing each matching package.
     # 'installed' is a "repo" that contains all installed packages.
     # Only want external repos, so filter that out. (Also filter blank lines).
-    external_repos_providing = [x for x in repoquery_out.split("\n") if re.search(r'\S', x) and -1 == x.find('installed')]
+    external_repos_providing = []
+    for repo in repoquery_out.split("\n"):
+        if re.search(r'\S', repo) and -1 == repo.find('installed'):
+            external_repos_providing.append(repo)
 
     # For now, considering this a fatal error.
     if not external_repos_providing:
@@ -158,6 +161,7 @@ def save_timestamp(timestamp_path, timestamp):
 
     """
     try:
+        logger.debug("Writing new timestamp %s", format_timestamp(timestamp))
         timestamp_handle = open(timestamp_path, 'w')
         try:
             print >> timestamp_handle, "%d\n" % timestamp
@@ -169,7 +173,6 @@ def save_timestamp(timestamp_path, timestamp):
         return False
 
 
-
 def get_lastrun_timestamp(timestamp_path):
     """Read a timestamp (seconds since epoch) from a file. Return None if
     the timestamp cannot be read. Assume that a nonexistant file means this
@@ -178,23 +181,40 @@ def get_lastrun_timestamp(timestamp_path):
     
     """
     if not os.path.exists(timestamp_path):
+        logger.debug("No last run recorded")
         return None
     try:
         timestamp_handle = open(timestamp_path)
         try:
             timestamp = timestamp_handle.readline()
+            logger.debug("Last run at %s", format_timestamp(timestamp))
             return float(timestamp)
         finally:
             timestamp_handle.close()
-    except IOError, err:
-        logger.error("Unable to load timestamp from %s: %s", timestamp_path, str(err))
-        return None
-    except ValueError, err:
-        logger.error("Unable to parse timestamp from %s: %s", timestamp_path, str(err))
+    except (IOError, ValueError), err:
+        logger.error("Unable to load or parse timestamp from %s: %s", timestamp_path, str(err))
         return None
 
 
-def timestamp_to_str(timestamp):
+def get_times(lastrun_timestamp, minimum_age_hours, maximum_age_hours):
+    """Return 'next_update_time' (time after which an update is attempted) and
+    'expire_time' (time after which a failed update is an error).
+
+    """
+    if not lastrun_timestamp:
+        next_update_time = time.time()
+        expire_time = time.time()
+    else:
+        next_update_time = lastrun_timestamp + minimum_age_hours * 3600
+        expire_time = lastrun_timestamp + maximum_age_hours * 3600
+
+    logger.debug("Next update time: %s" % format_timestamp(next_update_time))
+    logger.debug("Expire time: %s" % format_timestamp(expire_time))
+
+    return (next_update_time, expire_time)
+
+
+def format_timestamp(timestamp):
     "The timestamp (seconds since epoch) as a human-readable string."
     return time.strftime("%c", time.localtime(float(timestamp)))
 
@@ -272,52 +292,47 @@ def get_options(args):
 
     return options
 
-def main(argv=None):
+
+def main(argv):
     "Main function"
-    if argv is None:
-        argv = sys.argv
-    try:
-        options = get_options(argv[1:])
+    options = get_options(argv[1:])
 
-        setup_logger(options.loglevel, options.logfile, options.log_to_syslog, options.syslog_address, options.syslog_facility)
+    setup_logger(options.loglevel,
+                 options.logfile,
+                 options.log_to_syslog,
+                 options.syslog_address,
+                 options.syslog_facility)
 
-        lastrun_timestamp = get_lastrun_timestamp(LASTRUN_TIMESTAMP_PATH)
-        if not lastrun_timestamp:
-            logger.debug("No record of script having been run before")
-        else:
-            logger.debug("Last run %s" % timestamp_to_str(lastrun_timestamp))
+    next_update_time, expire_time = get_times(get_lastrun_timestamp(LASTRUN_TIMESTAMP_PATH),
+                                              options.minimum_age_hours,
+                                              options.maximum_age_hours)
 
-        if not lastrun_timestamp:
-            next_update_time = time.time()
-            expire_time = time.time()
-        else:
-            next_update_time = lastrun_timestamp + options.minimum_age_hours * 3600
-            expire_time = lastrun_timestamp + options.maximum_age_hours * 3600
-
-        logger.debug("Next update time: %s" % timestamp_to_str(next_update_time))
-        logger.debug("Expire time: %s" % timestamp_to_str(expire_time))
-
-        if time.time() >= next_update_time:
-            do_random_wait(options.random_wait_minutes * 60)
-            for pkg in PACKAGE_LIST:
-                verify_requirement_available(pkg)
-            ret = do_yum_update()
-            new_timestamp = time.time()
-            if ret:
-                logger.info("Update succeeded at %s" % timestamp_to_str(new_timestamp))
-                save_timestamp(LASTRUN_TIMESTAMP_PATH, new_timestamp)
+    if time.time() >= next_update_time:
+        do_random_wait(options.random_wait_minutes * 60)
+        for pkg in PACKAGE_LIST:
+            verify_requirement_available(pkg)
+        try:
+            do_yum_update(PACKAGE_LIST)
+            logger.info("Update succeeded")
+            save_timestamp(LASTRUN_TIMESTAMP_PATH, time.time())
+        except UpdateError, err:
+            logger.warning(str(err))
+            if time.time() >= expire_time:
+                raise UpdateError("Escalated to error")
             else:
-                logger.warning("Update failed at %s" % timestamp_to_str(new_timestamp))
-                if new_timestamp >= expire_time:
-                    raise UpdateError("Update failure escalated to error")
-                else:
-                    logger.info("Error considered transient until %s" %
-                                (timestamp_to_str(expire_time)))
-        else:
-            logger.info("Already updated in the past %d hours. Not updating again until %s." %
-                        (options.minimum_age_hours, timestamp_to_str(next_update_time)))
+                logger.info("Update error considered transient until %s" %
+                            (format_timestamp(expire_time)))
+    else:
+        logger.info("Already updated in the past %d hours. Not updating again until %s." %
+                    (options.minimum_age_hours, format_timestamp(next_update_time)))
 
-        exit_code = 0
+    return 0
+
+
+def safe_main(argv=None):
+    "Handle exceptions for real main function."
+    try:
+        exit_code = main(argv or sys.argv)
     except UsageError, err:
         print >> sys.stderr, str(err)
         print >> sys.stderr, "To see usage, run %s --help" % argv[0]
@@ -328,7 +343,7 @@ def main(argv=None):
         print >> sys.stderr, "Interrupted"
         exit_code = 3
     except UpdateError, err:
-        logger.error(str(err))
+        logger.critical(str(err))
         exit_code = 1
     except Error, err:
         logger.critical(str(err))
@@ -351,5 +366,5 @@ def main(argv=None):
     return exit_code
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(safe_main())
 
