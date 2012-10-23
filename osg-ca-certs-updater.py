@@ -365,9 +365,11 @@ def safe_main(argv=None):
         exit_code = main(argv or sys.argv)
     except UsageError, err:
         print >> sys.stderr, str(err)
-        print >> sys.stderr, "To see usage, run %s --help" % argv[0]
+        print >> sys.stderr, "To see usage, run %s --help" % os.path.basename(sys.argv[0])
         exit_code = 2
     except SystemExit, err:
+        if err.code == 2: # parser.error raises this
+            print >> sys.stderr, "To see usage, run %s --help" % os.path.basename(sys.argv[0])
         exit_code = err.code
     except KeyboardInterrupt:
         print >> sys.stderr, "Interrupted"
