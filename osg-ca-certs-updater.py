@@ -172,7 +172,11 @@ def setup_logger(loglevel, logfile_path, log_to_syslog, syslog_address, syslog_f
             log_handler = logging.handlers.SysLogHandler(address=syslog_address, facility=syslog_facility)
         else:
             log_formatter = logging.Formatter(PROGRAM_NAME + ":%(asctime)s:%(levelname)s:%(message)s")
-            log_handler = logging.FileHandler(logfile_path)
+            try:
+                log_handler = logging.FileHandler(logfile_path)
+            except IOError, err:
+                print >> sys.stderr, "Unable to open %s for writing logs to: %s" % (logfile_path, str(err)) 
+                sys.exit(4)
 
     log_handler.setLevel(loglevel)
     log_handler.setFormatter(log_formatter)
