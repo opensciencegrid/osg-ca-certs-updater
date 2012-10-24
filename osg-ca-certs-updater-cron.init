@@ -1,4 +1,12 @@
 #!/bin/sh
+#
+# osg-ca-certs-updater-cron     Enables automatic usage of osg-ca-certs-updater
+#
+# chkconfig: - 51 01
+#
+# description: Enables regular runs of osg-ca-certs-updater, a script for updating CA certificates packages
+# processname: osg-ca-certs-updater-cron
+#
 
 SERVICE_NAME=osg-ca-certs-updater-cron
 LOCKFILE=/var/lock/subsys/$SERVICE_NAME
