@@ -40,7 +40,7 @@ logger_set_up = False
 class Error(Exception):
     """Base class for expected exceptions. Caught in main(); may include a
     traceback but will only print it if debugging is enabled.
-    
+
     """
     def __init__(self, msg, trace=None):
         Exception.__init__(self)
@@ -72,7 +72,7 @@ class UpdateError(Error):
         self.helpmsg = helpmsg
 
 
-def get_options(args):    
+def get_options(args):
     "Parse, validate, and transform command-line options."
     parser = OptionParser("""
 %prog [options]
@@ -83,7 +83,8 @@ def get_options(args):
         "If absent or 0, always update.")
     parser.add_option(
         "-x", "--maximum-age", metavar="HOURS", dest="maximum_age_hours", default=0,
-        help="The time which must have elapsed since the last successful run before a failure to update the certificates is considered a critical error. "
+        help="The time which must have elapsed since the last successful run "
+        "before a failure to update the certificates is considered a critical error. "
         "Download failures before this time has elapsed are considered transient errors. "
         "If absent or 0, all unsuccessful update attempts are considered critical errors.")
     parser.add_option(
@@ -175,7 +176,7 @@ def setup_logger(loglevel, logfile_path, log_to_syslog, syslog_address, syslog_f
             try:
                 log_handler = logging.FileHandler(logfile_path)
             except IOError, err:
-                print >> sys.stderr, "Unable to open %s for writing logs to: %s" % (logfile_path, str(err)) 
+                print >> sys.stderr, "Unable to open %s for writing logs to: %s" % (logfile_path, str(err))
                 sys.exit(4)
 
     log_handler.setLevel(loglevel)
@@ -191,7 +192,7 @@ def get_lastrun_timestamp(timestamp_path):
     the timestamp cannot be read. Assume that a nonexistant file means this
     program has not been run before. Failure to read or parse an existing
     file is a non-fatal error that gets logged.
-    
+
     """
     if not os.path.exists(timestamp_path):
         logger.debug("No last run recorded")
@@ -248,7 +249,7 @@ def verify_requirement_available(requirement):
 
     """
     repoquery_proc = subprocess.Popen(
-        ["repoquery", "--whatprovides", requirement, "--queryformat=%{repoid}"],
+        ["repoquery", "--plugins", "--whatprovides", requirement, "--queryformat=%{repoid}"],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     (repoquery_out, repoquery_err) = repoquery_proc.communicate()
     repoquery_ret = repoquery_proc.returncode
@@ -342,7 +343,8 @@ def main(argv):
             logger.info("Send email to %s if you are having persistent trouble." % HELP_MAILTO)
             if time.time() >= expire_time:
                 logger.warning("Cert updates have failed for the past %g hours." % options.maximum_age_hours)
-                logger.info("Updates have failed for a long enough time that the failure is no longer considered transient.")
+                logger.info("Updates have failed for a long enough time that the failure is no "
+                            "longer considered transient.")
                 logger.info("This script will now exit unsuccessfully, triggering a notification.")
                 logger.info(ADJUST_MAX_AGE_MESSAGE)
                 raise
@@ -350,7 +352,8 @@ def main(argv):
                 logger.info("Updates have not failed for longer than %g hours." % options.maximum_age_hours)
                 logger.info("Since updates have succeeded recently, this failure will be considered transient, ")
                 logger.info("and will not trigger a notification for the admin.")
-                logger.info("An update failure after %s will be considered a persistant error, triggering a notification."
+                logger.info("An update failure after %s will be considered a persistant error, "
+                            "triggering a notification."
                             % (format_timestamp(expire_time)))
                 logger.info(ADJUST_MAX_AGE_MESSAGE)
     else:

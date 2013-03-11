@@ -1,4 +1,4 @@
-VERSION = 0.4
+VERSION = 0.5
 NAME = osg-ca-certs-updater
 NAME_VERSION = $(NAME)-$(VERSION)
 PYTHON_SITELIB = $(shell python -c "from distutils.sysconfig import get_python_lib; import sys; sys.stdout.write(get_python_lib())")
@@ -32,7 +32,7 @@ install: manual
 
 	mkdir -p $(DESTDIR)/$(DOCDIR)
 	install -p -m 644 README $(DESTDIR)/$(DOCDIR)
-	
+
 	mkdir -p $(DESTDIR)/$(MANDIR)
 	install -p -m 644 $(MANPAGE) $(DESTDIR)/$(MANDIR)
 
@@ -52,7 +52,7 @@ manual: $(MANPAGE)
 
 $(MANPAGE): $(MANPAGE).in
 	sed -e 's/@NAME@/$(NAME)/g' -e 's/@DATE@/$(MAN_DATE)/g' -e 's/@VERSION@/$(VERSION)/g' $(MANPAGE).in > $(MANPAGE)
-	
+
 
 release: dist
 	@if [ "$(DESTDIR)" = "" ]; then                                        \
