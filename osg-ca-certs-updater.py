@@ -118,6 +118,9 @@ def get_options(args):
         "--syslog-facility", default="user",
         help="The syslog facility to log to. "
         "Default is '%default'.")
+    parser.add_option(
+        "--enablerepo", dest="extra_repos", action="append", default=[],
+        help="Additional yum repos to enable. May be specified multiple times; wildcards can be used.")
 
     options, _ = parser.parse_args(args) # raises SystemExit(2) on error
 
@@ -238,7 +241,7 @@ def wait_random_duration(random_wait_seconds):
     time.sleep(time_to_wait)
 
 
-def verify_requirement_available(requirement):
+def verify_requirement_available(requirement, extra_repos=None):
     """Use repoquery to ensure that an rpm requirement matching 'requirement'
     is available in an external repository. When trying to update with the osg repos
     disabled, yum will find no updates but return success. We do not actually
@@ -248,9 +251,9 @@ def verify_requirement_available(requirement):
     packages without breaking this test in the future.
 
     """
-    repoquery_proc = subprocess.Popen(
-        ["repoquery", "--plugins", "--whatprovides", requirement, "--queryformat=%{repoid}"],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    extra_repos = extra_repos or []
+    cmd = ["repoquery"] + ["--enablerepo=" + x for x in extra_repos] + ["--plugins", "--whatprovides", requirement, "--queryformat=%{repoid}"]
+    repoquery_proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     (repoquery_out, repoquery_err) = repoquery_proc.communicate()
     repoquery_ret = repoquery_proc.returncode
 
@@ -271,13 +274,14 @@ def verify_requirement_available(requirement):
                           "Repository definition files are located in '/etc/yum.repos.d' by default.")
 
 
-def do_yum_update(package_list):
+def do_yum_update(package_list, extra_repos=None):
     """Use yum to update the packages in 'package_list'. Return a bool
     for success/failure. Output from yum is logged.
 
     """
-    yum_proc = subprocess.Popen(["yum", "update", "-y", "-q"] + package_list,
-                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    extra_repos = extra_repos or []
+    cmd = ["yum", "update"] + ["--enablerepo="+x for x in extra_repos] + ["-y", "-q"] + package_list
+    yum_proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     (yum_outerr, _) = yum_proc.communicate()
     yum_ret = yum_proc.returncode
 
@@ -329,9 +333,9 @@ def main(argv):
     if time.time() >= next_update_time:
         wait_random_duration(options.random_wait_minutes * SECONDS_PER_MINUTE)
         for pkg in PACKAGE_LIST:
-            verify_requirement_available(pkg)
+            verify_requirement_available(pkg, options.extra_repos)
         try:
-            do_yum_update(PACKAGE_LIST)
+            do_yum_update(PACKAGE_LIST, options.extra_repos)
             logger.info("Update succeeded")
             save_timestamp(LASTRUN_TIMESTAMP_PATH, time.time())
         except UpdateError:
