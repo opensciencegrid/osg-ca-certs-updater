@@ -1,4 +1,4 @@
-VERSION = 1.0
+VERSION = 1.2
 NAME = osg-ca-certs-updater
 NAME_VERSION = $(NAME)-$(VERSION)
 PYTHON_SITELIB = $(shell python -c "from distutils.sysconfig import get_python_lib; import sys; sys.stdout.write(get_python_lib())")
