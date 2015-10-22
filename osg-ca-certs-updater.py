@@ -1,6 +1,6 @@
 #!/usr/bin/python
 """OSG Auto-Updater for CA Certificates"""
-# (ignore bad name of script) pylint: disable=C0103 
+# (ignore bad name of script) pylint: disable=C0103
 from optparse import OptionParser
 import logging
 import logging.handlers
@@ -12,24 +12,24 @@ import sys
 import time
 import traceback
 
-__version__        = '@VERSION@'
-PROGRAM_NAME       = "osg-ca-certs-updater"
-HELP_MAILTO         = "goc@opensciencegrid.org"
-BUGREPORT_MAILTO    = "goc@opensciencegrid.org"
-OSG_REPO_ADDR      = "repo.grid.iu.edu"
+__version__            = '@VERSION@'
+PROGRAM_NAME           = "osg-ca-certs-updater"
+HELP_MAILTO            = "goc@opensciencegrid.org"
+BUGREPORT_MAILTO       = "goc@opensciencegrid.org"
+OSG_REPO_ADDR          = "repo.grid.iu.edu"
 
 LASTRUN_TIMESTAMP_PATH = "/var/lib/osg-ca-certs-updater-lastrun"
-PACKAGE_LIST = ["osg-ca-certs", "igtf-ca-certs"]
-SECONDS_PER_MINUTE = 60
-SECONDS_PER_HOUR   = 3600
+PACKAGE_LIST           = ["osg-ca-certs", "igtf-ca-certs"]
+SECONDS_PER_MINUTE     = 60
+SECONDS_PER_HOUR       = 3600
 
 ADJUST_MIN_AGE_MESSAGE = "To change update frequency, adjust the -a/--minimum-age argument."
 ADJUST_MAX_AGE_MESSAGE = ("To change the maximum time for which update failures are tolerated without a notification, "
                           "adjust the -x/--maximum-age argument.")
 GENERIC_HELP_MESSAGE   = "Send email to %s if you are having difficulty diagnosing this error." % HELP_MAILTO
 
-logger = logging.getLogger('updater')
-logger_set_up = False
+logger                 = logging.getLogger('updater')
+logger_set_up          = False
 
 
 class Error(Exception):
@@ -247,7 +247,10 @@ def verify_requirement_available(requirement, extra_repos=None):
 
     """
     extra_repos = extra_repos or []
-    cmd = ["repoquery"] + ["--enablerepo=" + x for x in extra_repos] + ["--plugins", "--whatprovides", requirement, "--queryformat=%{repoid}"]
+    cmd = ["repoquery"] + ["--enablerepo=" + x for x in extra_repos] + ["--plugins",
+                                                                        "--whatprovides",
+                                                                        requirement,
+                                                                        "--queryformat=%{repoid}"]
     repoquery_proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     (repoquery_out, repoquery_err) = repoquery_proc.communicate()
     repoquery_ret = repoquery_proc.returncode
@@ -315,7 +318,7 @@ def get_osg_version():
     cmd = ['rpm', '-q', '--queryformat', '%{VERSION}', 'osg-version']
     rpm_proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     (rpm_out, _) = rpm_proc.communicate()
-    
+
     try:
         version_tuple = re.match(r'(\d+)\.(\d+)\.(\d+)', rpm_out).groups()
     except AttributeError:
