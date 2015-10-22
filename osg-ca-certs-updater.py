@@ -313,16 +313,16 @@ def format_timestamp(timestamp):
     "The timestamp (seconds since epoch) as a human-readable string."
     return time.strftime("%F %T", time.localtime(float(timestamp)))
 
-def get_osg_version():
+def get_osg_release_ver():
     """Use rpm to determine the OSG version of the current install"""
-    cmd = ['rpm', '-q', '--queryformat', '%{VERSION}', 'osg-version']
+    cmd = ['rpm', '-q', '--queryformat', '%{VERSION}', 'osg-release']
     rpm_proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     (rpm_out, _) = rpm_proc.communicate()
 
     try:
         version_tuple = re.match(r'(\d+)\.(\d+)\.(\d+)', rpm_out).groups()
     except AttributeError:
-        raise UpdateError('Could not find OSG version', 'Ensure that the osg-version RPM is installed')
+        raise UpdateError('Could not find OSG release version', 'Ensure that the osg-release RPM is installed')
     return map(int, version_tuple)
 
 def main(argv):
@@ -341,7 +341,7 @@ def main(argv):
 
     if time.time() >= next_update_time:
         wait_random_duration(options.random_wait_minutes * SECONDS_PER_MINUTE)
-        (osg_major_ver, osg_minor_ver, _) = get_osg_version()
+        (osg_major_ver, osg_minor_ver, _) = get_osg_release_ver()
         packages = PACKAGE_LIST
         if osg_major_ver <= 3 and osg_minor_ver <= 2:
             packages += ["osg-ca-certs-compat", "igtf-ca-certs-compat"]
