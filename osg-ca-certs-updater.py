@@ -320,7 +320,7 @@ def get_osg_release_ver():
     (rpm_out, _) = rpm_proc.communicate()
 
     try:
-        version_tuple = re.match(r'(\d+)\.(\d+)\.(\d+)', rpm_out).groups()
+        version_tuple = re.match(r'(\d+)\.(\d+)', rpm_out).groups()
     except AttributeError:
         raise UpdateError('Could not find OSG release version', 'Ensure that the osg-release RPM is installed')
     return map(int, version_tuple)
@@ -341,7 +341,7 @@ def main(argv):
 
     if time.time() >= next_update_time:
         wait_random_duration(options.random_wait_minutes * SECONDS_PER_MINUTE)
-        (osg_major_ver, osg_minor_ver, _) = get_osg_release_ver()
+        (osg_major_ver, osg_minor_ver) = get_osg_release_ver()
         packages = PACKAGE_LIST
         if osg_major_ver <= 3 and osg_minor_ver <= 2:
             packages += ["osg-ca-certs-compat", "igtf-ca-certs-compat"]
