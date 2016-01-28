@@ -20,6 +20,7 @@ OSG_REPO_ADDR          = "repo.grid.iu.edu"
 
 LASTRUN_TIMESTAMP_PATH = "/var/lib/osg-ca-certs-updater-lastrun"
 PACKAGE_LIST           = ["osg-ca-certs", "igtf-ca-certs"]
+UNCHECKED_PACKAGE_LIST = ["osg-ca-certs-compat", "igtf-ca-certs-compat"]
 SECONDS_PER_MINUTE     = 60
 SECONDS_PER_HOUR       = 3600
 
@@ -313,17 +314,6 @@ def format_timestamp(timestamp):
     "The timestamp (seconds since epoch) as a human-readable string."
     return time.strftime("%F %T", time.localtime(float(timestamp)))
 
-def get_osg_release_ver():
-    """Use rpm to determine the OSG version of the current install"""
-    cmd = ['rpm', '-q', '--queryformat', '%{VERSION}', 'osg-release']
-    rpm_proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-    (rpm_out, _) = rpm_proc.communicate()
-
-    try:
-        version_tuple = re.match(r'(\d+)\.(\d+)', rpm_out).groups()
-    except AttributeError:
-        raise UpdateError('Could not find OSG release version', 'Ensure that the osg-release RPM is installed')
-    return map(int, version_tuple)
 
 def main(argv):
     "Main function"
@@ -341,14 +331,12 @@ def main(argv):
 
     if time.time() >= next_update_time:
         wait_random_duration(options.random_wait_minutes * SECONDS_PER_MINUTE)
-        (osg_major_ver, osg_minor_ver) = get_osg_release_ver()
         packages = PACKAGE_LIST
-        if osg_major_ver <= 3 and osg_minor_ver <= 2:
-            packages += ["osg-ca-certs-compat", "igtf-ca-certs-compat"]
         for pkg in packages:
             verify_requirement_available(pkg, options.extra_repos)
+        packages += UNCHECKED_PACKAGE_LIST
         try:
-            do_yum_update(PACKAGE_LIST, options.extra_repos)
+            do_yum_update(packages, options.extra_repos)
             logger.info("Update succeeded")
             save_timestamp(LASTRUN_TIMESTAMP_PATH, time.time())
         except UpdateError:
