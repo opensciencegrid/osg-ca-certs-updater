@@ -237,6 +237,17 @@ def wait_random_duration(random_wait_seconds):
     time.sleep(time_to_wait)
 
 
+def is_rpm_installed(rpm):
+    devnull = open(os.devnull, 'w')
+    try:
+        proc = subprocess.Popen(["rpm", "-q", rpm], stdout=devnull, stderr=devnull)
+        returncode = proc.wait()
+    finally:
+        devnull.close()
+
+    return returncode == 0
+
+
 def verify_requirement_available(requirement, extra_repos=None):
     """Use repoquery to ensure that an rpm requirement matching 'requirement'
     is available in an external repository. When trying to update with the osg repos
@@ -263,7 +274,7 @@ def verify_requirement_available(requirement, extra_repos=None):
     # Only want external repos, so filter that out.
     external_repos_providing = []
     for repo in repoquery_out.split("\n"):
-        if re.search(r'\S', repo) and -1 == repo.find('installed'):
+        if re.search(r'\S', repo) and 'installed' not in repo:
             external_repos_providing.append(repo)
 
     # For now, considering this a fatal error.
@@ -335,8 +346,9 @@ def main(argv):
         for pkg in packages:
             verify_requirement_available(pkg, options.extra_repos)
         packages += UNCHECKED_PACKAGE_LIST
+        installed_packages = [pkg for pkg in packages if is_rpm_installed(pkg)]
         try:
-            do_yum_update(packages, options.extra_repos)
+            do_yum_update(installed_packages, options.extra_repos)
             logger.info("Update succeeded")
             save_timestamp(LASTRUN_TIMESTAMP_PATH, time.time())
         except UpdateError:
