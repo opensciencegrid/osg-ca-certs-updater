@@ -31,7 +31,7 @@ install: manual
 	install -p -m 644 $(NAME).cron $(DESTDIR)/$(CRONDDIR)/$(NAME)
 
 	mkdir -p $(DESTDIR)/$(DOCDIR)
-	install -p -m 644 README $(DESTDIR)/$(DOCDIR)
+	install -p -m 644 README.md $(DESTDIR)/$(DOCDIR)
 
 	mkdir -p $(DESTDIR)/$(MANDIR)
 	install -p -m 644 $(MANPAGE) $(DESTDIR)/$(MANDIR)
@@ -39,9 +39,9 @@ install: manual
 
 dist:
 	mkdir -p $(NAME_VERSION)
-	cp -rp $(NAME).py $(NAME)-cron.init $(NAME).cron Makefile pylintrc $(MANPAGE).in README $(NAME_VERSION)/
+	cp -rp $(NAME).py $(NAME)-cron.init $(NAME).cron Makefile pylintrc $(MANPAGE).in README.md $(NAME_VERSION)/
 	sed -i -e '/__version__/s/@VERSION@/$(VERSION)/' $(NAME_VERSION)/$(NAME).py
-	tar czf $(NAME_VERSION).tar.gz $(NAME_VERSION)/ --exclude='*/.svn*' --exclude='*/*.py[co]' --exclude='*/*~'
+	tar czf $(NAME_VERSION).tar.gz $(NAME_VERSION)/ --exclude='*/.svn*' --exclude='*/*.py[co]' --exclude='*/*~' --exclude='*/.git*'
 
 afsdist upstream: dist
 	mkdir -p $(AFS_UPSTREAM_DIR)/$(VERSION)
