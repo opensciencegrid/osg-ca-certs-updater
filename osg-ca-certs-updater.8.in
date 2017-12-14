@@ -74,6 +74,6 @@ Matyas Selmeci (matyas (at) cs.wisc.edu)
 .SH MAINTAINER
 Open Science Grid Software Team (osg-software (at) opensciencegrid.org)
 .SH SEE ALSO
-The OSG Software Stack version 3 documentation on the Open Science Grid wiki is located at
-.B https://twiki.grid.iu.edu/bin/view/Documentation/Release3/
+The OSG Software Stack version 3 documentation at
+.B https://opensciencegrid.github.io
 
