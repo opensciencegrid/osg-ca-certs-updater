@@ -14,8 +14,8 @@ import traceback
 
 __version__            = '@VERSION@'
 PROGRAM_NAME           = "osg-ca-certs-updater"
-HELP_MAILTO            = "goc@opensciencegrid.org"
-BUGREPORT_MAILTO       = "goc@opensciencegrid.org"
+HELP_MAILTO            = "help@opensciencegrid.org"
+BUGREPORT_MAILTO       = "help@opensciencegrid.org"
 OSG_REPO_ADDR          = "repo.grid.iu.edu"
 
 LASTRUN_TIMESTAMP_PATH = "/var/lib/osg-ca-certs-updater-lastrun"
