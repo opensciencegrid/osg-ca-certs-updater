@@ -74,6 +74,5 @@ Matyas Selmeci (matyas (at) cs.wisc.edu)
 .SH MAINTAINER
 Open Science Grid Software Team (osg-software (at) opensciencegrid.org)
 .SH SEE ALSO
-The OSG Software Stack version 3 documentation at
-.B https://opensciencegrid.github.io
-
+The OSG Software Stack CA certs documentation at
+.B https://opensciencegrid.github.io/docs/common/ca/
