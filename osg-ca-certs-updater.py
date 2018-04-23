@@ -16,7 +16,7 @@ __version__            = '@VERSION@'
 PROGRAM_NAME           = "osg-ca-certs-updater"
 HELP_MAILTO            = "help@opensciencegrid.org"
 BUGREPORT_MAILTO       = "help@opensciencegrid.org"
-OSG_REPO_ADDR          = "repo.grid.iu.edu"
+OSG_REPO_ADDR          = "repo.opensciencegrid.org"
 
 LASTRUN_TIMESTAMP_PATH = "/var/lib/osg-ca-certs-updater-lastrun"
 PACKAGE_LIST           = ["osg-ca-certs", "igtf-ca-certs"]
