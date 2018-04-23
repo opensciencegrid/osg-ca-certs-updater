@@ -1,6 +1,7 @@
 #!/usr/bin/python
 """OSG Auto-Updater for CA Certificates"""
 # (ignore bad name of script) pylint: disable=C0103
+from __future__ import print_function
 from optparse import OptionParser
 import logging
 import logging.handlers
@@ -174,8 +175,8 @@ def setup_logger(loglevel, logfile_path, log_to_syslog, syslog_address, syslog_f
             log_formatter = logging.Formatter(PROGRAM_NAME + ":%(asctime)s:%(levelname)s:%(message)s")
             try:
                 log_handler = logging.FileHandler(logfile_path)
-            except IOError, err:
-                print >> sys.stderr, "Unable to open %s for writing logs to: %s" % (logfile_path, str(err))
+            except IOError as err:
+                print("Unable to open %s for writing logs to: %s" % (logfile_path, str(err)), file=sys.stderr)
                 sys.exit(4)
 
     log_handler.setLevel(loglevel)
@@ -204,7 +205,7 @@ def get_lastrun_timestamp(timestamp_path):
             return float(timestamp) # 'finally' happens after this
         finally:
             timestamp_handle.close()
-    except (IOError, ValueError), err:
+    except (IOError, ValueError) as err:
         logger.error("Unable to load or parse timestamp from %s: %s", timestamp_path, str(err))
         return None
 
@@ -312,11 +313,11 @@ def save_timestamp(timestamp_path, timestamp):
         logger.debug("Writing new timestamp %s", format_timestamp(timestamp))
         timestamp_handle = open(timestamp_path, 'w')
         try:
-            print >> timestamp_handle, "%d\n" % timestamp
+            print("%d\n" % timestamp, file=timestamp_handle)
             return True # 'finally' happens after this
         finally:
             timestamp_handle.close() # raises IOError on failure; will be logged
-    except IOError, err:
+    except IOError as err:
         logger.error("Unable to save timestamp to %s: %s", timestamp_path, str(err))
         return False
 
@@ -387,29 +388,29 @@ def safe_main(argv=None):
     "Handle exceptions for real main function."
     try:
         exit_code = main(argv or sys.argv)
-    except UsageError, err:
-        print >> sys.stderr, str(err)
-        print >> sys.stderr, "To see usage, run %s --help" % os.path.basename(sys.argv[0])
+    except UsageError as err:
+        print(str(err), file=sys.stderr)
+        print("To see usage, run %s --help" % os.path.basename(sys.argv[0]), file=sys.stderr)
         exit_code = 2
-    except SystemExit, err:
+    except SystemExit as err:
         if err.code == 2: # parser.error raises this
-            print >> sys.stderr, "To see usage, run %s --help" % os.path.basename(sys.argv[0])
+            print("To see usage, run %s --help" % os.path.basename(sys.argv[0]), file=sys.stderr)
         exit_code = err.code
     except KeyboardInterrupt:
-        print >> sys.stderr, "Interrupted"
+        print("Interrupted", file=sys.stderr)
         exit_code = 3
-    except UpdateError, err:
+    except UpdateError as err:
         logger.critical(str(err))
         if err.helpmsg:
             logger.info(err.helpmsg)
         logger.info(GENERIC_HELP_MESSAGE)
         exit_code = 1
-    except Error, err:
+    except Error as err:
         logger.critical(str(err))
         logger.debug(err.traceback)
         logger.info(GENERIC_HELP_MESSAGE)
         exit_code = 4
-    except Exception, err:
+    except Exception as err:
         # We have to worry about the logger possibly not being initialized at
         # this point. Use the root logger if that's the case.
         if not logger_set_up:
