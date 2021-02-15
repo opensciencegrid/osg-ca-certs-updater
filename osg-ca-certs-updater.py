@@ -1,7 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """OSG Auto-Updater for CA Certificates"""
 # (ignore bad name of script) pylint: disable=C0103
-from __future__ import print_function
 from optparse import OptionParser
 import logging
 import logging.handlers
@@ -267,6 +266,10 @@ def verify_requirement_available(requirement, extra_repos=None):
     repoquery_proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     (repoquery_out, repoquery_err) = repoquery_proc.communicate()
     repoquery_ret = repoquery_proc.returncode
+    repoquery_out, repoquery_err = (
+        repoquery_out.decode("utf-8", errors="ignore"),
+        repoquery_err.decode("utf-8", errors="ignore")
+    )
 
     if repoquery_ret != 0:
         raise UpdateError("Unable to query repository. Repoquery error:\n%s" % (repoquery_err))
@@ -293,7 +296,7 @@ def do_yum_update(package_list, extra_repos=None):
     extra_repos = extra_repos or []
     cmd = ["yum", "update"] + ["--enablerepo="+x for x in extra_repos] + ["-y", "-q"] + package_list
     yum_proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    (yum_outerr, _) = yum_proc.communicate()
+    yum_outerr = yum_proc.communicate()[0].decode("utf-8", errors="ignore")
     yum_ret = yum_proc.returncode
 
     if re.search(r'\S', yum_outerr):
@@ -311,7 +314,7 @@ def save_timestamp(timestamp_path, timestamp):
     """
     try:
         logger.debug("Writing new timestamp %s", format_timestamp(timestamp))
-        timestamp_handle = open(timestamp_path, 'w')
+        timestamp_handle = open(timestamp_path, 'wt')
         try:
             print("%d\n" % timestamp, file=timestamp_handle)
             return True # 'finally' happens after this

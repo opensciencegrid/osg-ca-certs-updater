@@ -1,5 +1,5 @@
 Name:           osg-ca-certs-updater
-Version:        1.8
+Version:        2.0
 Release:        1%{?dist}
 Summary:        Automatic CA certs updates for OSG
 
@@ -10,17 +10,21 @@ Source0:        %{name}-%{version}.tar.gz
 
 BuildArch:      noarch
 
+BuildRequires:  python3
+%define __python /usr/bin/python3
+BuildRequires:  /usr/bin/repoquery
 Requires:       /usr/bin/repoquery
 
 %description
 %{summary}
 
 
+
 %prep
 %setup -q
 
 %install
-make install DESTDIR=%{buildroot}
+make install DESTDIR=%{buildroot} PYTHON=%{__python}
 mkdir -p %{buildroot}/%{_localstatedir}/{lock/subsys,lib}
 touch %{buildroot}/%{_localstatedir}/lock/subsys/%{name}-cron
 touch %{buildroot}/%{_localstatedir}/lib/%{name}-lastrun
@@ -44,6 +48,9 @@ fi
 %doc %{_defaultdocdir}/%{name}-%{version}/README*
 
 %changelog
+* Mon Feb 15 2021 Mátyás Selmeci <matyas@cs.wisc.edu> - 2.0-1
+- Python 3/EL8 support
+
 * Wed Apr 25 2018 Mátyás Selmeci <matyas@cs.wisc.edu> - 1.8-1
 - Replace grid.iu.edu URL with current link (SOFTWARE-3216)
 

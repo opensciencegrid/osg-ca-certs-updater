@@ -1,7 +1,8 @@
-VERSION = 1.8
+VERSION = 2.0
 NAME = osg-ca-certs-updater
 NAME_VERSION = $(NAME)-$(VERSION)
-PYTHON_SITELIB = $(shell python -c "from distutils.sysconfig import get_python_lib; import sys; sys.stdout.write(get_python_lib())")
+PYTHON = python3
+PYTHON_SITELIB = $(shell $(PYTHON) -c "from distutils.sysconfig import get_python_lib; import sys; sys.stdout.write(get_python_lib())")
 SBINDIR = /usr/sbin
 SYSCONFDIR = /etc
 INITRDDIR = $(SYSCONFDIR)/rc.d/init.d
