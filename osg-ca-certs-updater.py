@@ -259,10 +259,12 @@ def verify_requirement_available(requirement, extra_repos=None):
 
     """
     extra_repos = extra_repos or []
-    cmd = ["repoquery"] + ["--enablerepo=" + x for x in extra_repos] + ["--plugins",
-                                                                        "--whatprovides",
-                                                                        requirement,
-                                                                        "--queryformat=%{repoid}"]
+    cmd = ["repoquery"] + ["--enablerepo=" + x for x in extra_repos]
+    if not is_rpm_installed("dnf"):
+        # dnf's repoquery has the priorities plugin built in; for pre-dnf versions,
+        # you need to ask for plugins to be enabled
+        cmd += "--plugins"
+    cmd += ["--whatprovides", requirement, "--queryformat=%{repoid}"]
     repoquery_proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     (repoquery_out, repoquery_err) = repoquery_proc.communicate()
     repoquery_ret = repoquery_proc.returncode
