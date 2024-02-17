@@ -31,6 +31,7 @@ GENERIC_HELP_MESSAGE   = "Send email to %s if you are having difficulty diagnosi
 
 logger                 = logging.getLogger('updater')
 logger_set_up          = False
+_debug                 = False
 
 
 class Error(Exception):
@@ -89,7 +90,7 @@ def get_options(args):
         "This spreads out update requests to reduce load spikes on update servers. "
         "If absent or 0, update immediately.")
     parser.add_option(
-        "--debug", action="store_const", const=logging.DEBUG, dest="loglevel", default=logging.WARNING,
+        "--debug", action="store_true",
         help="Display debugging information.")
     parser.add_option(
         "-v", "--verbose", action="store_const",
@@ -295,8 +296,12 @@ def do_yum_update(package_list, extra_repos=None):
     for success/failure. Output from yum is logged.
 
     """
+    global _debug
     extra_repos = extra_repos or []
-    cmd = ["yum", "update"] + ["--enablerepo="+x for x in extra_repos] + ["-y", "-q"] + package_list
+    cmd = ["yum", "update", "-y"] + ["--enablerepo="+x for x in extra_repos]
+    if not _debug:
+        cmd += ["-q"]
+    cmd += package_list
     yum_proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     yum_outerr = yum_proc.communicate()[0].decode("utf-8", errors="ignore")
     yum_ret = yum_proc.returncode
@@ -334,9 +339,12 @@ def format_timestamp(timestamp):
 
 def main(argv):
     "Main function"
-    options = get_options(argv[1:])
+    global _debug
 
-    setup_logger(options.loglevel,
+    options = get_options(argv[1:])
+    _debug = options.debug
+
+    setup_logger(logging.DEBUG if _debug else options.loglevel,
                  options.logfile,
                  options.log_to_syslog,
                  options.syslog_address,
