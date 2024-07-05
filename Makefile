@@ -1,4 +1,4 @@
-VERSION = 2.0
+VERSION = 2.1
 NAME = osg-ca-certs-updater
 NAME_VERSION = $(NAME)-$(VERSION)
 PYTHON = python3
