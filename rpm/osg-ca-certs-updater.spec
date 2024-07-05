@@ -1,5 +1,5 @@
 Name:           osg-ca-certs-updater
-Version:        2.0
+Version:        2.1
 Release:        1%{?dist}
 Summary:        Automatic CA certs updates for OSG
 
@@ -48,6 +48,9 @@ fi
 %doc %{_defaultdocdir}/%{name}-%{version}/README*
 
 %changelog
+* Fri Jul 05 2024 Mátyás Selmeci <matyas@cs.wisc.edu> - 2.1-1
+- Fix incompatibility with DNF (SOFTWARE-5788)
+
 * Mon Feb 15 2021 Mátyás Selmeci <matyas@cs.wisc.edu> - 2.0-1
 - Python 3/EL8 support
 
