@@ -14,6 +14,7 @@ BuildRequires:  python3
 %define __python /usr/bin/python3
 BuildRequires:  /usr/bin/repoquery
 Requires:       /usr/bin/repoquery
+Requires:       initscripts
 Requires(post): /sbin/chkconfig
 Requires(preun): /sbin/chkconfig
 Requires(preun): /sbin/service
