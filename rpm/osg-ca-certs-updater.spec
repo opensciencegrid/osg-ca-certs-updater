@@ -51,6 +51,9 @@ fi
 %doc %{_defaultdocdir}/%{name}-%{version}/README*
 
 %changelog
+* Fri Jul 12 2024 Mátyás Selmeci <matyas@cs.wisc.edu> - 2.1-2
+- Fix missing scriptlet requirements (SOFTWARE-5788)
+
 * Fri Jul 05 2024 Mátyás Selmeci <matyas@cs.wisc.edu> - 2.1-1
 - Fix incompatibility with DNF (SOFTWARE-5788)
 
