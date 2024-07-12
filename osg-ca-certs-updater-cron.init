@@ -11,7 +11,6 @@
 SERVICE_NAME=osg-ca-certs-updater-cron
 LOCKFILE=/var/lock/subsys/$SERVICE_NAME
 
-. /etc/rc.d/init.d/functions
 
 start () {
     action "Enabling automatic CA certificate updates" touch $LOCKFILE

@@ -1,6 +1,6 @@
 Name:           osg-ca-certs-updater
 Version:        2.1
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Automatic CA certs updates for OSG
 
 Group:          System Environment/Tools
@@ -14,6 +14,9 @@ BuildRequires:  python3
 %define __python /usr/bin/python3
 BuildRequires:  /usr/bin/repoquery
 Requires:       /usr/bin/repoquery
+Requires(post): /sbin/chkconfig
+Requires(preun): /sbin/chkconfig
+Requires(preun): /sbin/service
 
 %description
 %{summary}
