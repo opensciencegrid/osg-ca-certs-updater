@@ -1,4 +1,4 @@
-VERSION = 2.1
+VERSION = 2.2
 NAME = osg-ca-certs-updater
 NAME_VERSION = $(NAME)-$(VERSION)
 PYTHON = python3
@@ -9,6 +9,7 @@ INITRDDIR = $(SYSCONFDIR)/rc.d/init.d
 CRONDDIR = $(SYSCONFDIR)/cron.d
 DOCDIR = /usr/share/doc/$(NAME_VERSION)
 MANDIR = /usr/share/man/man8
+SYSTEMDDIR = /usr/lib/systemd/system/
 MANPAGE = $(NAME).8
 
 MAN_DATE = $(shell date +'%B %d, %Y')
@@ -25,14 +26,11 @@ install: manual
 	mkdir -p $(DESTDIR)/$(SBINDIR)
 	install -p -m 755 $(NAME).py $(DESTDIR)/$(SBINDIR)/$(NAME)
 
-	mkdir -p $(DESTDIR)/$(INITRDDIR)
-	install -p -m 755 $(NAME)-cron.init $(DESTDIR)/$(INITRDDIR)/$(NAME)-cron
-
-	mkdir -p $(DESTDIR)/$(CRONDDIR)
-	install -p -m 644 $(NAME).cron $(DESTDIR)/$(CRONDDIR)/$(NAME)
-
 	mkdir -p $(DESTDIR)/$(DOCDIR)
 	install -p -m 644 README.md $(DESTDIR)/$(DOCDIR)
+
+	mkdir -p $(DESTDIR)/$(SYSTEMDDIR)
+	install -p -m 644 $(NAME).timer $(NAME).service $(DESTDIR)/$(SYSTEMDDIR)
 
 	mkdir -p $(DESTDIR)/$(MANDIR)
 	install -p -m 644 $(MANPAGE) $(DESTDIR)/$(MANDIR)
@@ -40,7 +38,7 @@ install: manual
 
 dist:
 	mkdir -p $(NAME_VERSION)
-	cp -rp $(NAME).py $(NAME)-cron.init $(NAME).cron Makefile pylintrc $(MANPAGE).in README.md $(NAME_VERSION)/
+	cp -rp $(NAME).py Makefile pylintrc $(MANPAGE).in README.md $(NAME_VERSION)/
 	sed -i -e '/__version__/s/@VERSION@/$(VERSION)/' $(NAME_VERSION)/$(NAME).py
 	tar czf $(NAME_VERSION).tar.gz $(NAME_VERSION)/ --exclude='*/.svn*' --exclude='*/*.py[co]' --exclude='*/*~' --exclude='*/.git*'
 
