@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Automatic CA certs updates for OSG every 6 hours
+
+[Timer]
+# Every 6 hours, on the hour
+OnCalendar=00/6:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

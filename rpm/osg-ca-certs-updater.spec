@@ -1,6 +1,6 @@
 Name:           osg-ca-certs-updater
-Version:        2.1
-Release:        2%{?dist}
+Version:        2.2
+Release:        1%{?dist}
 Summary:        Automatic CA certs updates for OSG
 
 Group:          System Environment/Tools
@@ -14,10 +14,7 @@ BuildRequires:  python3
 %define __python /usr/bin/python3
 BuildRequires:  /usr/bin/repoquery
 Requires:       /usr/bin/repoquery
-Requires:       initscripts
-Requires(post): /sbin/chkconfig
-Requires(preun): /sbin/chkconfig
-Requires(preun): /sbin/service
+Requires:       systemd
 
 %description
 %{summary}
@@ -30,28 +27,19 @@ Requires(preun): /sbin/service
 %install
 make install DESTDIR=%{buildroot} PYTHON=%{__python}
 mkdir -p %{buildroot}/%{_localstatedir}/{lock/subsys,lib}
-touch %{buildroot}/%{_localstatedir}/lock/subsys/%{name}-cron
 touch %{buildroot}/%{_localstatedir}/lib/%{name}-lastrun
-
-%post
-/sbin/chkconfig --add %{name}-cron
-
-%preun
-if [ $1 -eq 0 ]; then
-    /sbin/service %{name}-cron stop > /dev/null 2>&1 || :
-    /sbin/chkconfig --del %{name}-cron
-fi
 
 %files
 %{_sbindir}/%{name}
-%{_initrddir}/%{name}-cron
-%config(noreplace) %{_sysconfdir}/cron.d/%{name}
-%ghost %{_localstatedir}/lock/subsys/%{name}-cron
+/usr/lib/systemd/system/osg-ca-certs-updater.*
 %ghost %{_localstatedir}/lib/%{name}-lastrun
 %doc %{_mandir}/man8/%{name}.8*
 %doc %{_defaultdocdir}/%{name}-%{version}/README*
 
 %changelog
+* Tue Apr 08 2025 Matt Westphall <westphall@wisc.edu> - 2.2-1
+- Replace cronjob with systemd timer (SOFTWARE-6068)
+
 * Fri Jul 12 2024 Mátyás Selmeci <matyas@cs.wisc.edu> - 2.1-2
 - Fix missing scriptlet requirements (SOFTWARE-5788)
 
